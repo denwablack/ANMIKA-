@@ -706,7 +706,7 @@ window.addEventListener('touchstart',unlockAudio,{passive:true});
 function togSnd(){SND=!SND;if(SND){snd('tile')}if(G.h)draw()}
 ['pointerdown','pointerup','touchend','click'].forEach(ev=>document.addEventListener(ev,()=>{try{actx();preClips()}catch(e){}if(!VU){VU=1;try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;u.lang='ja-JP';speechSynthesis.speak(u)}catch(e){}}}));
 
-let RES=null,G={opt:loadSavedOptions()},msg='';let DISCSEL=-1;let V=0,ROLE='solo',RM=null,PEND=false,SEATS={},LASTM=['',''],NICK='',CODE='',DMSG='',TMR=null,DICE_DELTA=null;// 理牌順：萬子(7m→仮想8m→9m)を筒子・索子・字牌より前に並べる。
+let RES=null,G={opt:loadSavedOptions()},msg='';let DISCSEL=-1;let V=0,SITV=false,SITPEERS=[],ROLE='solo',RM=null,PEND=false,SEATS={},LASTM=['',''],NICK='',CODE='',DMSG='',TMR=null,DICE_DELTA=null;// 理牌順：萬子(7m→仮想8m→9m)を筒子・索子・字牌より前に並べる。
 const tileSortIndex=t=>{const i=tileIndex(t);if(i===1)return 1;if(i===32)return 2;if(i===31)return 3;return i+2};
 const st=(a,b)=>tileSortIndex(a)-tileSortIndex(b)||a-b;
 const nk=p=>G.kan[p].length+G.pon[p].filter(k=>k.length>4).length;
@@ -789,7 +789,8 @@ const indicatorTiles=a=>tiles(a.map(t=>t));
 function sitLog(n,why){if(!G||!G.R||!n)return;(G.sitLedger=G.sitLedger||[]).push({n,why})}
 function rosterApply(){const R=G.R,D=R.D;G.sitLedger=[];let P=[D,(D+1)%4,(D+2)%4];const k=P.indexOf(0);if(k>0)P=P.slice(k).concat(P.slice(0,k));
  R.P=P;R.sit=[0,1,2,3].find(x=>!P.includes(x));if(R.lastSit!==undefined&&R.lastSit!==R.sit)R.cnt=0;R.lastSit=R.sit;R.sc0=R.chips[R.sit];G.dealer=P.indexOf(D);
- G.pts=P.map(p=>R.pts[p]);G.chips=P.map(p=>R.chips[p]);G.used=P.map(p=>R.used[p]);G.names=P.map(p=>R.names[p]);G.hum=P.map(p=>R.hum[p])}
+ G.pts=P.map(p=>R.pts[p]);G.chips=P.map(p=>R.chips[p]);G.used=P.map(p=>R.used[p]);G.names=P.map(p=>R.names[p]);G.hum=P.map(p=>R.hum[p]);
+ if(ROLE=='host'&&RM&&R.tok){G.hum=P.map(p=>R.hum[p]);rosterSyncSeats(true);G.hum=P.map(p=>R.hum[p]);G.names=P.map(p=>R.names[p]);try{RM.emit('seat',{map:seatMap()}).catch(()=>{})}catch(e){}LASTM=['','']}}
 /* 抜け番ルール：抜け番の貰い（流局/春なしアガリ）・サイコロチャンス・シュバ滑り */
 function sitterDice(){const a=1+Math.random()*6|0;let b;do{b=1+Math.random()*6|0}while(b===a);let hit=0;for(let n=0;n<4;){const x=1+Math.random()*6|0,y=1+Math.random()*6|0;if(x===y)continue;n++;if((x===a&&y===b)||(x===b&&y===a))hit++}return{a,b,hit}}
 function sitterEnd(ryu){const R=G.R,s=R.sit,nm=R.names[s];let out='';
@@ -891,6 +892,7 @@ function tulipTargets(idx){
  if(idx>=24&&idx<=26)return [24,25,26];
  return [idx]}
 function btns(){
+ if(SITV)return '';
  const p=V,c=cnt(G.h[p]||[]);let a='';
  if(G.stage=='me'&&G.act==p){
   if(G.pocchiChoice===p){
@@ -926,7 +928,7 @@ function riiWaitHtml(p,ok){if(!PEND||!ok||!ok.length)return '';const g=new Map()
  return items?`<div class="riiWaitPanel"><div class="rwTitle">🎯 切る牌 → リーチ後の待ち</div>${items}</div>`:''}
 function togRii(m){PEND=PEND==m?false:m;draw()}
 function setRiiType(m){PEND=PEND==m?false:m;draw()}
-function Ufast(n,x){DISCSEL=-1;if(ROLE=='guest'){if(RM)RM.emit('act',{a:n,x:x,p:PEND}).catch(()=>{})}else act(V,n,x,PEND);PEND=false}
+function Ufast(n,x){if(SITV)return;DISCSEL=-1;if(ROLE=='guest'){if(RM)RM.emit('act',{a:n,x:x,p:PEND}).catch(()=>{})}else act(V,n,x,PEND);PEND=false}
 function U(n,x){if(n==='disc'&&G.opt&&G.opt.doubleClickDiscard){if(DISCSEL!==x){DISCSEL=x;if(G.h)draw();return}Ufast(n,x);return}if(n!=='disc')DISCSEL=-1;Ufast(n,x)}
 function act(s,n,x,pd){if(G.specialRiiPause)return;if(!G.hum||!G.hum[s])return;const f=AC[n];if(f)f(s,x|0,pd|0)}
 function A_disc(s,i,pd){if(G.stage!='me'||G.act!=s||G.turn!=s||i<0||i>=G.h[s].length)return;if((G.h[s][i]&31)===23||((G.h[s][i]&31)>=27&&(G.h[s][i]&31)<=30))return;if(G.rii[s]&&i!=G.last)return;
@@ -983,7 +985,7 @@ function A_ron(s,y){if(G.stage!='ron'||G.act!=s)return;G.stage='';G.act=-1;const
 function A_pon(s,y){if(G.stage!='pon'||G.act!=s)return;G.stage='';G.act=-1;if(y)return doPon(s,G.pp,G.pt);nextTurn(G.pp)}
 function A_dkan(s,y){if(G.stage!='pon'||G.act!=s||!y)return;const p=G.pp,t=G.pt,b=t&31;if(G.rii[s]||nk(s)>=4||G.wall.length<3||G.h[s].filter(x=>(x&31)==b).length<3)return;G.stage='';G.act=-1;doDkan(s,p,t)}
 const AC={disc:A_disc,nuki:A_nuki,flower:A_flower,kan:A_kan,kakan:A_kakan,pocchiWin:A_pocchiWin,pocchiKan:A_pocchiKan,tsumo:A_tsumo,ron:A_ron,pon:A_pon,dkan:A_dkan,nopon:(s,x)=>{NOPONS[s]=!!x;if(x&&G.stage=='pon'&&G.act==s){G.stage='';G.act=-1;nextTurn(G.pp)}}};
-function takeover(s){if(ROLE!='host'||!G.hum[s])return;G.hum[s]=0;G.names[s]+='(CPU)';const st=G.stage;
+function takeover(s){if(ROLE!='host'||!G.hum[s])return;G.hum[s]=0;G.names[s]+='(CPU)';if(G.R&&G.R.P){const r=G.R.P[s];if(r!=null&&r>=1){G.R.hum[r]=0;G.R.names[r]=String(G.R.names[r]).replace(/\(CPU\)$/,'')+'(CPU)'}}const st=G.stage;
  if(st=='me'&&G.act==s){G.act=-1;cpuTurn(s)}else if(st=='ron'&&G.act==s){G.stage='';G.act=-1;G.mf[s]=1;ronCheck(G.rp,G.rt,G.rk+1,G.rws)}else if(st=='pon'&&G.act==s){G.stage='';G.act=-1;nextTurn(G.pp)}else render('')}
 function render(a){
  if(RES&&RES.ty==='win')document.body.classList.remove('wintransition');
@@ -1061,10 +1063,10 @@ function render(a){
   <div class="cluster right">${G.rii[pR]?'<div class="riichiRod" title="リーチ棒"></div>':''}<div class="rvrow">${riv(pR,'right')}</div><div class="name3 vr">${pl(pR)}</div></div>
   <div class="cluster bottom"><div class="name3">${pl(p0)}</div>${G.rii[p0]?'<div class="riichiRod" title="リーチ棒"></div>':''}${riv(p0,'bottom')}</div>${sitBadge}
  </div></div>
- ${riiWaitHtml(p0,ok)}<div class="hrow"><div class="hand">${G.h[p0].map((t,i)=>{const last=i==G.last&&G.turn==p0,k2=t>>5,mine=G.stage=='me'&&G.act==p0;const k=(PEND&&!ok.includes(i))||(G.rii[p0]&&!last&&mine)?'dim':(PEND?'ok':'');return `<span class="t ${cl(t)} ${['','rd','gd','pt','pt','pt','pt'][k2]} ${(k2==3||k2==4)?'pocchi-normal':(k2==5||k2==6)?'pocchi-reverse':''} ${k2==3?'pocchi-blue':k2==4?'pocchi-green':k2==5?'pocchi-yellow':k2==6?'pocchi-red':''} ${k} ${DISCSEL===i?'sel':''} ${last?'gap':''}" onclick="U('disc',${i})">${tileFace(t)}</span>`}).join('')}</div></div>
+ ${riiWaitHtml(p0,ok)}<div class="hrow"><div class="hand">${SITV?'<span style="opacity:.75;padding:10px;color:#fff">🪑 抜け番（観戦中）</span>':G.h[p0].map((t,i)=>{const last=i==G.last&&G.turn==p0,k2=t>>5,mine=G.stage=='me'&&G.act==p0;const k=(PEND&&!ok.includes(i))||(G.rii[p0]&&!last&&mine)?'dim':(PEND?'ok':'');return `<span class="t ${cl(t)} ${['','rd','gd','pt','pt','pt','pt'][k2]} ${(k2==3||k2==4)?'pocchi-normal':(k2==5||k2==6)?'pocchi-reverse':''} ${k2==3?'pocchi-blue':k2==4?'pocchi-green':k2==5?'pocchi-yellow':k2==6?'pocchi-red':''} ${k} ${DISCSEL===i?'sel':''} ${last?'gap':''}" onclick="U('disc',${i})">${tileFace(t)}</span>`}).join('')}</div></div>
  <div class="cm cml">${meldsHtml(pL,'top')}</div><div class="cm cmr">${meldsHtml(pR,'right')}</div><div class="acts"><div class="cm cmo">${meldsHtml(p0)}</div><div class="abtns">${a||''}</div></div><div class="toast" ${log.trim()?'':'style="display:none"'}>${log}</div>${resHtml()}${(()=>{if(!G.callTxt){DFX_KEY='';return ''}if(/^ダブルフィーバー/.test(G.callTxt)){dfxEnsure(G.callTxt);return ''}const cd=G.callSm?650:(G.callBig?5200:0),el=cd&&G.callAt?Date.now()-G.callAt:0;if(cd&&G.callAt&&el>cd&&!FX_HOLD)return '';const st=[];if(cd&&G.callAt)st.push('animation-delay:-'+(el/1000).toFixed(2)+'s');if(G.callBig){const n=Array.from(G.callTxt).length;st.push('font-size:min(34vh,160px,calc(86vw/'+n+'))')}const feverTxt=G.callTxt=='フィーバーリーチ';const feverShuTxt=G.callTxt=='フィーバーシュバリーチ！';const shugiTxt=G.callTxt=='祝儀倍リーチ';if(G.callBig&&(feverTxt||feverShuTxt||shugiTxt)){const n=Array.from(G.callTxt).length;st.push('font-size:'+(feverTxt||feverShuTxt?'min(22vh,120px,calc(88vw/'+n+'))':'min(14vh,76px,calc(88vw/'+n+'))'))}const callText=feverShuTxt?'フィーバー\nシュバリーチ':G.callTxt;return `<div class="callfx${G.callSm?' sm':''}${feverTxt?' feverRainbow':''}${feverShuTxt?' feverShuRainbow':''}${shugiTxt?' shugiRed':''}${feverTxt?' feverCut':''}"${st.length?` style="${st.join(';')}"`:''}>${callText}${G.callDub&&G.callTxt==='ロン'?'<span class="callDubTag">ダブロン！</span>':''}</div>`})()}</div>`;
  if(ROLE=='host')bcast()}
-function snap(s){return{pts:G.pts,chips:G.chips,dealer:G.dealer,hn:G.hn,mord:G.mord,callTxt:G.callTxt,callSm:G.callSm,callBig:G.callBig,pot:G.pot,honba:G.honba,riiIdx:G.riiIdx,ind:G.ind,nuki:G.nuki,disc:G.disc,away:G.away,rii:G.rii,dri:G.dri,fev:G.fev,dbl:G.dbl,used:G.used,kan:G.kan,pon:G.pon,turn:G.turn,dw:G.dw,stage:G.stage,act:G.act,last:G.last,called:G.called,wl:G.wall.length,opt:G.opt,hum:G.hum,names:G.names,over:G.over,h:G.h.map((h,p)=>p==s?h:h.map(()=>0))}}
+function snap(s){return{pts:G.pts,chips:G.chips,dealer:G.dealer,hn:G.hn,mord:G.mord,callTxt:G.callTxt,callSm:G.callSm,callBig:G.callBig,pot:G.pot,honba:G.honba,riiIdx:G.riiIdx,ind:G.ind,nuki:G.nuki,disc:G.disc,away:G.away,rii:G.rii,dri:G.dri,fev:G.fev,dbl:G.dbl,used:G.used,kan:G.kan,pon:G.pon,turn:G.turn,dw:G.dw,stage:G.stage,act:G.act,last:G.last,called:G.called,wl:G.wall.length,opt:G.opt,hum:G.hum,names:G.names,over:G.over,R:G.R?{names:G.R.names,pts:G.R.pts,chips:G.R.chips,sit:G.R.sit,D:G.R.D}:null,h:G.h.map((h,p)=>p==s?h:h.map(()=>0))}}
 const encM=x=>String(x||'').split('<hr>').slice(-2).join('<hr>').replace(/<span class="t [^"]*" data-t="(\d+)"[^>]*>.*?<\/span>/g,'⟦$1⟧');
 const decM=x=>String(x||'').replace(/⟦(\d+)⟧/g,(m,i)=>tiles([+i]));
 function sendBig(topic,obj){if(!RM)return;const j=JSON.stringify(obj);
@@ -1078,9 +1080,31 @@ function onBig(room,topic,fn){const buf={};room.on(topic,m=>{let d=m.data;
   try{d=JSON.parse(Array.from({length:b.n},(_,i)=>b.p[i]).join(''))}catch(e){return}}
  fn({data:d,peer:m.peer})})}
 function bcast(){if(!RM||ROLE!='host'||!G.h)return;
- for(const s of Object.values(SEATS)){if(!G.hum[s])continue;sendBig('st'+s,snap(s));
-  const m=JSON.stringify({m:encM(msg),d:encM(G.dmsg)});if(m!=LASTM[s]){LASTM[s]=m;sendBig('m'+s,JSON.parse(m))}
-  const rj=JSON.stringify({r:RES});if(rj!=LASTM['r'+s]){LASTM['r'+s]=rj;sendBig('r'+s,JSON.parse(rj))}}}
+ const targets=[];for(const s of Object.values(SEATS)){if(G.hum[s])targets.push([s,s])}
+ if(G.R&&SITPEERS.length)targets.push([3,-1]);/* 抜け番の人間には、全員の手牌を伏せたスナップを送る */
+ targets.forEach(([k,s])=>{sendBig('st'+k,snap(s));
+  const m=JSON.stringify({m:encM(msg),d:encM(G.dmsg)});if(m!=LASTM[k]){LASTM[k]=m;sendBig('m'+k,JSON.parse(m))}
+  const rj=JSON.stringify({r:RES});if(rj!=LASTM['r'+k]){LASTM['r'+k]=rj;sendBig('r'+k,JSON.parse(rj))}})}
+/* 4人回し（オンライン）：名簿の人間を毎局の席へ割り当て直す。抜け番の人は観戦席（SITPEERS）。 */
+function seatMap(){const m=Object.assign({},SEATS);SITPEERS.forEach(id=>{m[id]=10});return m}
+function rosterSyncSeats(atHandStart){
+ if(ROLE!='host'||!RM||!G||!G.R||!G.R.P)return;
+ const R=G.R;if(!R.tok)R.tok=['host',null,null,null];
+ let guests=[];try{guests=RM.peers().filter(p=>!p.isMe&&p.presence&&p.presence.role=='guest')}catch(e){}
+ const key=g=>(g.presence&&g.presence.resumeToken)||g.peer;
+ for(const k of Object.keys(SEATS))delete SEATS[k];SITPEERS=[];
+ const claimed=new Set([0]),strip=n=>String(n||'').replace(/\(CPU\)$/,'');
+ guests.forEach(g=>{const t=key(g);let r=R.tok.indexOf(t);
+  if(r<1&&atHandStart){/* 途中参加は次の局の頭でCPU席に入る */
+   r=[1,2,3].find(i=>!R.tok[i]&&!claimed.has(i));
+   if(r!=null){R.tok[r]=t;R.names[r]=clean(g.presence.nick)||'ゲスト';R.hum[r]=1}else r=-1}
+  if(r>=1){claimed.add(r);if(!R.hum[r]&&atHandStart){R.hum[r]=1;R.names[r]=strip(R.names[r])}
+   const s=R.P.indexOf(r);if(s>=0)SEATS[g.peer]=s;else SITPEERS.push(g.peer)}
+  else SITPEERS.push(g.peer)});
+ /* 抜け番中に切断した人はCPU扱いにする（着席中の切断は takeover が処理） */
+ for(let r=1;r<4;r++)if(R.tok[r]&&!claimed.has(r)&&R.hum[r]&&R.P.indexOf(r)<0){R.hum[r]=0;R.names[r]=strip(R.names[r])+'(CPU)'}
+ SITV=R.P.indexOf(0)<0;
+}
 var GLAST='';
 function gApply(d){
  // 和了結果はホストが次の局面へ進めるまでゲスト側で保持する。
@@ -2360,7 +2384,7 @@ function resHtml(){const r=RES;if(!r){RIVV=false;return''}
  const cls=v=>v>0?'pos':v<0?'neg':'';
  const nextB=r.done?(ROLE=='guest'?'<span style="opacity:.7">ホストの操作待ち</span>':`<button onclick="contRes()">${G.over?'もう一度':'次に進む'}</button>`):'';
  if(RIVV)return `<div class="rvbar"><span>🌊河を表示中</span><button class="g" onclick="RIVV=false;render('')">和了画面に戻る</button>${nextB}</div>`;
- const feverChoice=!!r.feverChoice,feverWinner=feverChoice&&V==r.w;
+ const feverChoice=!!r.feverChoice,feverWinner=feverChoice&&V==r.w&&!SITV;
  const btn=r.done?(feverChoice?(feverWinner?`${r.hasWinter?`<button class="r" onclick="feverChoiceRemote('end')">❄️冬を発動させる</button>`:''}<button onclick="feverChoiceRemote('continue')">🎰続行する</button>`:(ROLE=='guest'?'<span style="opacity:.7">ホストの操作待ち</span>':`<button class="g" onclick="feverChoiceRemote('continue')">次に進む</button>`)):(ROLE=='guest'?'<span style="opacity:.7">ホストの操作待ち</span>':`<button onclick="contRes()">${G.over?'もう一度':'続ける'}</button>`)):'';
  const rvBtn='<button class="g" onclick="RIVV=true;render(&quot;&quot;)">🌊河を見る</button>'+(ROLE=='guest'?'<button class="g" onclick="closeGuestRes()">✖結果を閉じる</button>':'');
  const fin=r.fin?`<div style="padding:2px 8px;color:#ffd54a">終局！</div>${r.endBonus?`<div style="margin:4px 8px;padding:6px 8px;border:1px solid #ffd54a;border-radius:8px;background:#2a2208;color:#ffe27a;font-weight:800">🏆 点数ボーナス（終局精算）<br>トップ ${r.endBonus.topScore.toLocaleString()}点 → ${r.endBonus.all?`${r.endBonus.all}枚オール`:'なし'}${r.endBonus.all?` ／ ${r.names.map((n,i)=>n+' '+(r.endBonus.settlement[i]>=0?'+':'')+r.endBonus.settlement[i]+'枚').join(' ／ ')}`:''}</div>`:''}<table class="sc"><tr><th>順位</th><th>今回チップ合計<br><small>（順位精算含む）</small></th><th>累計チップ合計</th></tr>${r.fin.map((x,i)=>`<tr><td>${i+1}位 ${x[1]}<br><small>${x[7]!==undefined?'順位点チップ '+(x[7]>0?'+':'')+x[7]+'枚':'順位点 '+(x[4]>0?'+':'')+x[4]+'点'}</small></td><td><b>${sg(x[2])}枚</b></td><td>${sg(x[6])}枚</td></tr>`).join('')}</table>${KIF?'<div style="padding:3px 8px"><button class="g" onclick="homeFromResult()">🏠 ホームに戻る</button></div>':''}`:'';
@@ -2523,7 +2547,7 @@ function mkRoom(role,rid){return new Promise((resolve,reject)=>{
       const ghost=Object.keys(G2).find(id=>G2[id].disconnectedAt&&!(SEATS&&SEATS[id]!=null));
       if(ghost)delete G2[ghost];
      }
-     if(Object.keys(G2).length>=2){try{c.send({k:'full'})}catch(e){}setTimeout(()=>{try{c.close()}catch(e){}},400);return}
+     if(Object.keys(G2).length>=3){try{c.send({k:'full'})}catch(e){}setTimeout(()=>{try{c.close()}catch(e){}},400);return}
      G2[c.peer]={conn:c,p:{resumeToken:token},seen:Date.now()}}
     if(token&&SEATS&&SEATS[c.peer]!=null)RESUME_SEATS[token]=SEATS[c.peer];
     sendAll(rosterMsg());fireP(old?[]:[entry(c.peer,G2[c.peer].p)],[]);if(SEATS&&SEATS[c.peer]!=null)fire('need',{peer:c.peer,data:{},topic:'need',isMe:false})});
@@ -2589,7 +2613,7 @@ function mkRoom(role,rid){return new Promise((resolve,reject)=>{
     setStatus('ok')});
    conn.on('data',o=>{lastRx=Date.now();if(!o||typeof o!='object')return;
     if(o.k=='h')return;
-    if(o.k=='full'){closed=true;if(R.onClose)R.onClose('この部屋は満員です（最大3人）');return}
+    if(o.k=='full'){closed=true;if(R.onClose)R.onClose('この部屋は満員です（最大4人）');return}
     if(o.k=='r'&&Array.isArray(o.list)){const old=roster;roster=o.list;
      const oi=old.map(x=>x.peer),ni=roster.map(x=>x.peer);
      fireP(roster.filter(x=>!oi.includes(x.peer)).map(x=>entry(x.peer,x.presence,x.peer==myId())),old.filter(x=>!ni.includes(x.peer)).map(x=>entry(x.peer,x.presence)))}
@@ -2623,17 +2647,17 @@ async function goOnline(role){
  RM.onStatus=st=>{let b=document.getElementById('netBanner');if(st=='lost'){if(!b){b=document.createElement('div');b.id='netBanner';b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:#b3261e;color:#fff;text-align:center;padding:6px 8px;font:700 14px sans-serif';b.textContent='⚠ ホストとの接続が切れました。再接続中…';document.body.appendChild(b)}}else{if(b)b.remove();PEND=false;DISCSEL=-1;try{if(ROLE=='guest'&&G&&G.h)draw()}catch(e){}}};
 RM.presence({role:role,nick:NICK});
  RM.onPeers(ch=>{if($('lobbyList'))$('lobbyList').innerHTML=listHtml();
-  if(ROLE=='host'){ch.left.forEach(p=>{const s=SEATS[p.peer];if(s!=null&&G.hum&&G.hum[s])takeover(s)});if(ch.joined.length)LASTM=['','']}});
+  if(ROLE=='host'){ch.left.forEach(p=>{const s=SEATS[p.peer];if(s!=null&&G.hum&&G.hum[s])takeover(s)});if(ch.joined.length){LASTM=['',''];if(G.R&&G.h)setTimeout(()=>{rosterSyncSeats(false);try{RM.emit('seat',{map:seatMap()}).catch(()=>{});bcast()}catch(e){}},400)}}});
  if(role=='host'){
   RM.on('away',m=>{if(ROLE!='host'||!G.h||!G.hum)return;const s=SEATS[m&&m.peer];if(s!=null&&G.hum[s])takeover(s)});
   RM.on('act',m=>{if(ROLE!='host'||!G.h)return;const s=SEATS[m.peer],d=m.data||{};if(s==null||typeof d.a!='string')return;if((d.a=='feverEnd'||d.a=='feverContinue')&&s==G.feverChoiceW){if(d.a=='feverEnd')feverChoiceEnd();else feverChoiceContinue();return}act(s,d.a,d.x,d.p)});
-  RM.on('need',m=>{if(G.h){const peerId=m&&m.peer,s=SEATS[peerId];if(s!=null&&G.hum&&G.hum[s]===0){G.hum[s]=1;G.names[s]=String(G.names[s]||'').replace(/\(CPU\)$/,'')}RM.emit('seat',{map:SEATS}).catch(()=>{});LASTM=['',''];bcast()}});
-   TMR=setInterval(()=>{if(G.h&&Object.keys(SEATS).length)RM.emit('seat',{map:SEATS}).catch(()=>{});LASTM=['',''];bcast()},3000)}
+  RM.on('need',m=>{if(G.h){if(G.R)rosterSyncSeats(false);const peerId=m&&m.peer,s=SEATS[peerId];if(s!=null&&G.hum&&G.hum[s]===0){G.hum[s]=1;G.names[s]=String(G.names[s]||'').replace(/\(CPU\)$/,'');if(G.R&&G.R.P){const r=G.R.P[s];if(r!=null&&r>=1&&G.R.tok&&G.R.tok[r]){G.R.hum[r]=1;G.R.names[r]=String(G.R.names[r]).replace(/\(CPU\)$/,'')}}}RM.emit('seat',{map:seatMap()}).catch(()=>{});LASTM=['',''];bcast()}});
+   TMR=setInterval(()=>{if(G.R&&G.h)rosterSyncSeats(false);if(G.h&&(Object.keys(SEATS).length||SITPEERS.length))RM.emit('seat',{map:seatMap()}).catch(()=>{});LASTM=['',''];bcast()},3000)}
  else{
   RM.on('tableFx',m=>{const d=m&&m.data||m||{};if(typeof d.text==='string')tableFxShow(d.text,!!d.big)});RM.on('fxHold',m=>fxReceive({topic:'fxHold',data:m.data||{}}));
   RM.on('fxRelease',m=>fxReceive({topic:'fxRelease',data:m.data||{}}));
-  RM.on('seat',m=>{const mp=m.data&&m.data.map,id=RM.myId();if(mp&&mp[id]!=null){if(V!=mp[id]){KIF=null;V=mp[id]}if(!G.h)RM.emit('need',{}).catch(()=>{})}});
-  [1,2].forEach(s=>{onBig(RM,'st'+s,m=>{if(ROLE=='guest'&&V==s&&m.data)gApply(m.data)});onBig(RM,'r'+s,m=>{if(V==s&&m.data){const incoming=m.data.r||null;const rb0=JSON.stringify(RES);const dism=!!(incoming&&RDISM&&JSON.stringify(incoming)===RDISM);/* ホストから一時的なnull結果が届いても、和了画面は局面進行まで保持 */if(dism){}else if(!(RES&&RES.ty==='win'&&!incoming)&&!(RESKEEP&&RES&&!incoming)){RES=incoming;if(!incoming)RIVV=false;if(incoming)DISMRES=null}if(!incoming)RDISM='';if(G.h&&JSON.stringify(RES)!==rb0)draw()}});onBig(RM,'m'+s,m=>{if(V==s&&m.data){const mk0=JSON.stringify([msg,DMSG]);msg=decM(m.data.m);DMSG=decM(m.data.d);if(G.h){G.dmsg=DMSG;if(JSON.stringify([msg,DMSG])!==mk0)draw()}}})});
+  RM.on('seat',m=>{const mp=m.data&&m.data.map,id=RM.myId();if(mp&&mp[id]!=null){const raw=mp[id],sv=raw>=10,nv=sv?0:raw;if(V!=nv||SITV!==sv){KIF=null;V=nv;SITV=sv;DISCSEL=-1;PEND=false;if(G.h)draw()}if(!G.h)RM.emit('need',{}).catch(()=>{})}});
+  [0,1,2,3].forEach(s=>{const tk=()=>SITV?3:V;onBig(RM,'st'+s,m=>{if(ROLE=='guest'&&tk()==s&&m.data)gApply(m.data)});onBig(RM,'r'+s,m=>{if(tk()==s&&m.data){const incoming=m.data.r||null;const rb0=JSON.stringify(RES);const dism=!!(incoming&&RDISM&&JSON.stringify(incoming)===RDISM);/* ホストから一時的なnull結果が届いても、和了画面は局面進行まで保持 */if(dism){}else if(!(RES&&RES.ty==='win'&&!incoming)&&!(RESKEEP&&RES&&!incoming)){RES=incoming;if(!incoming)RIVV=false;if(incoming)DISMRES=null}if(!incoming)RDISM='';if(G.h&&JSON.stringify(RES)!==rb0)draw()}});onBig(RM,'m'+s,m=>{if(tk()==s&&m.data){const mk0=JSON.stringify([msg,DMSG]);msg=decM(m.data.m);DMSG=decM(m.data.d);if(G.h){G.dmsg=DMSG;if(JSON.stringify([msg,DMSG])!==mk0)draw()}}})});
   onBig(RM,'kif',m=>{const k=kifSan(m.data);if(!k)return;khAdd(k);KIF=k.hands;KIFN=k.names.slice();KIFME=k.me;if(G.h)draw();else if($('kiflist')&&$('kiflist').style.display=='block')kifListDraw()});
    RM.on('lobby',()=>{G={opt:G.opt};V=-1;lobby()})}
  lobby()}
@@ -2897,10 +2921,10 @@ function delKif(i){if(!KHIST[i]||!confirm('この牌譜を削除しますか？'
 function startGame(mode){
  const o=readOptionForm(),hum=[1,0,0],names=[clean(NICK)||'あなた','CPU-A','CPU-B']; G.opt=o;applyOrientationLayout();
  if(!RM||mode=='solo'){const n=$('nick');if(n)names[0]=clean(n.value)||'あなた';NICK=names[0]}
- SEATS={};V=0;
- if(mode=='host'&&RM){RM.prune();RM.peers().filter(p=>!p.isMe&&p.presence&&p.presence.role=='guest').slice(0,2).forEach((g,i)=>{hum[i+1]=1;names[i+1]=clean(g.presence.nick)||'ゲスト';SEATS[g.peer]=i+1;if(RM.rememberSeat)RM.rememberSeat(g.peer,i+1)});RM.emit('seat',{map:SEATS}).catch(()=>{});setTimeout(()=>{LASTM=['',''];bcast()},500)}
+ SEATS={};SITPEERS=[];SITV=false;V=0;let rosterGuests=null;
+ if(mode=='host'&&RM){RM.prune();const gs=RM.peers().filter(p=>!p.isMe&&p.presence&&p.presence.role=='guest');if(o.mode4!==false&&gs.length){rosterGuests=gs.slice(0,3)}else gs.slice(0,2).forEach((g,i)=>{hum[i+1]=1;names[i+1]=clean(g.presence.nick)||'ゲスト';SEATS[g.peer]=i+1;if(RM.rememberSeat)RM.rememberSeat(g.peer,i+1)});RM.emit('seat',{map:seatMap()}).catch(()=>{});setTimeout(()=>{LASTM=['',''];bcast()},500)}
  G={opt:o,pts:[35000,35000,35000],dealer:0,hn:1,honba:0,pot:0,chips:[0,0,0],used:[0,0,0],hum,names,over:false};
- if(o.mode4!==false&&!hum[1]&&!hum[2]){G.R={D:0,pts:[35000,35000,35000,35000],chips:[0,0,0,0],used:[0,0,0,0],names:[names[0],'CPU-A','CPU-B','CPU-C'],hum:[hum[0],0,0,0],P:[0,1,2],sit:3}}
+ if(o.mode4!==false&&((!hum[1]&&!hum[2])||rosterGuests)){const nm4=[names[0],'CPU-A','CPU-B','CPU-C'],h4=[hum[0],0,0,0],tok=['host',null,null,null];(rosterGuests||[]).forEach((g,i)=>{nm4[i+1]=clean(g.presence.nick)||'ゲスト';h4[i+1]=1;tok[i+1]=(g.presence&&g.presence.resumeToken)||g.peer});G.R={D:0,pts:[35000,35000,35000,35000],chips:[0,0,0,0],used:[0,0,0,0],names:nm4,hum:h4,tok,P:[0,1,2],sit:3}}
  newHand()}
 menu();
 </script></body></html>
