@@ -1416,6 +1416,110 @@ function cpuShugiRii(p,i,fever){if(G.used[p])return false;if(fever)return true;i
  (G.pon[p]||[]).forEach(k=>{try{ptl(k).forEach(x=>{if((x>>5)===2&&(x&31)!==23)gold++})}catch(e){}});
  (G.kan[p]||[]).forEach(k=>k.slice(0,4).forEach(x=>{if((x>>5)===2&&(x&31)!==23)gold++}));
  return gold>=2}
+/* ===== CPU打牌AI（現代麻雀技術論ベース） =====
+ * ①向聴数を最小にする → ②受け入れ枚数（場に見えている牌を引いて残り枚数で計算）を最大にする
+ * ③打点（ドラ・赤・金・役牌・フィーバー用の7）を残す → ④他家リーチ時は向聴数に応じて押し引き（現物・スジ・字牌）。 */
+const CPU_SUIT=i=>i>=2&&i<=10?[2,10]:i>=11&&i<=19?[11,19]:null;
+function cpuShanten(c,k){
+ let best=8-2*k;
+ const dfs=(i,m,t,pair)=>{
+  while(i<32&&!c[i])i++;
+  if(i>=32){const tt=Math.min(t,4-m);const s=8-2*m-tt-(pair?1:0);if(s<best)best=s;return}
+  if(c[i]>=3){c[i]-=3;dfs(i,m+1,t,pair);c[i]+=3}
+  if(c[i]>=2){c[i]-=2;dfs(i,m,pair?t+1:t,1);c[i]+=2}
+  const r=CPU_SUIT(i);
+  if(r){
+   if(i+2<=r[1]&&c[i+1]&&c[i+2]){c[i]--;c[i+1]--;c[i+2]--;dfs(i,m+1,t,pair);c[i]++;c[i+1]++;c[i+2]++}
+   if(i+1<=r[1]&&c[i+1]){c[i]--;c[i+1]--;dfs(i,m,t+1,pair);c[i]++;c[i+1]++}
+   if(i+2<=r[1]&&c[i+2]){c[i]--;c[i+2]--;dfs(i,m,t+1,pair);c[i]++;c[i+2]++}
+  }
+  c[i]--;dfs(i,m,t,pair);c[i]++;
+ };
+ dfs(0,k,0,0);
+ if(k===0){
+  let pr=0,kinds=0;for(let i=0;i<32;i++){if(c[i]>=1)kinds++;if(c[i]>=2)pr++}
+  best=Math.min(best,6-pr+Math.max(0,7-kinds));
+  let yk=0,yp=0;YC.forEach(i=>{if(c[i]>=1)yk++;if(c[i]>=2)yp=1});
+  if(yk>=10)best=Math.min(best,13-yk-yp);
+ }
+ return best}
+/* 牌idxの危険度（小さいほど安全）。riichi者それぞれに対する最大値を返す */
+function cpuDanger(p,idx,seen){
+ let worst=0,anyRii=false;
+ for(let q=0;q<3;q++){
+  if(q===p||!G.rii[q])continue;anyRii=true;
+  const dis=new Set((G.disc[q]||[]).map(x=>x&31));
+  (G.away&&G.away[q]||[]).forEach(x=>dis.add(x&31));
+  let d;
+  if(dis.has(idx))d=0;
+  else{
+   const r=CPU_SUIT(idx);
+   if(!r){const rest=4-seen[idx];d=rest<=0?0:rest===1?2:rest===2?4:6;if(idx===20||idx===21||idx===22||idx===24+0)d+=1}
+   else{
+    const n=idx-r[0]+1;let suji=false;
+    if(n<=3)suji=dis.has(idx+3);else if(n>=7)suji=dis.has(idx-3);else suji=dis.has(idx-3)&&dis.has(idx+3);
+    d=(n===1||n===9)?(suji?1:4):(n===2||n===8)?(suji?2:5):(n===3||n===7)?(suji?3:6):(suji?4:8);
+   }
+  }
+  if(q===G.dealer)d*=1.3;
+  if(G.fev[q])d*=1.5;
+  if(d>worst)worst=d}
+ return anyRii?worst:0}
+function cpuPickDiscard(p){
+ const h=G.h[p],k=G.pon[p].length+G.kan[p].length;
+ const c=Array(33).fill(0),cand=new Map();
+ h.forEach((t,i)=>{const b=t&31,kk=t>>5;
+  if(kk>=3||b===23||(b>=27&&b<=30))return;/* ポッチ（万能牌）・北・華は数えない／切らない */
+  c[b]++;
+  const cur=cand.get(b);if(!cur||kk<cur.kk)cand.set(b,{i,kk,b})});
+ if(!cand.size){const alt=h.findIndex(x=>(x&31)!==23&&!((x&31)>=27&&(x&31)<=30));return alt>=0?alt:0}
+ const seen=seenCnt(h);
+ const doraSet=new Set((G.ind||[]).map(x=>nx(x&31)));
+ const rw=roundWind(),sw=20+((p-G.dealer+3)%3);
+ const live=u=>Math.max(0,4-seen[u]);
+ const base=cpuShanten(c,k);
+ const riiThreat=[0,1,2].some(q=>q!==p&&G.rii[q]);
+ /* 押し引き：リーチ者がいて自分が2向聴以上なら完全に降り、1向聴は価値が高い時のみ押す */
+ let foldLv=0;
+ if(riiThreat){
+  const myVal=(G.nuki[p]||[]).length+h.filter(x=>(x>>5)===1||((x>>5)===2&&(x&31)!==23)).length+h.filter(x=>doraSet.has(x&31)).length;
+  foldLv=base>=2?2:base===1?(myVal>=3?0:1):0;
+ }
+ const res=[];
+ cand.forEach(v=>{
+  const b=v.b;c[b]--;
+  const s=cpuShanten(c,k);let ukeire=0,good=0;
+  for(let u=0;u<32;u++){
+   if(u===23||u===24||(u>=27&&u<=30)||c[u]>=4||!live(u))continue;
+   c[u]++;if(cpuShanten(c,k)<s){ukeire+=live(u);good++}c[u]--}
+  c[b]++;
+  /* 残す価値 */
+  let keep=0;
+  const copies=c[b];
+  if(doraSet.has(b))keep+=14;
+  if(v.kk===1)keep+=10;else if(v.kk===2)keep+=18;
+  if(b>=20&&b<=22&&(b===rw||b===sw))keep+=copies>=2?30:2;
+  else if(b>=20&&b<=26&&copies>=2)keep+=copies>=2?3:0;
+  if(FEVER_IDX.includes(b))keep+=copies>=3?40:copies===2?14:3;
+  /* 孤立した字牌・端牌は切りやすい */
+  if(copies===1&&(b>=20||b===1||b===31||b===2||b===10||b===11||b===19))keep-=2;
+  const dg=riiThreat?cpuDanger(p,b,seen):0;
+  res.push({i:v.i,b,s,ukeire,keep,dg});
+ });
+ const minS=Math.min(...res.map(r=>r.s));
+ let pool=res;
+ if(foldLv===2){
+  /* 完全ベタオリ：最も安全な牌、同程度なら受け入れの広い方 */
+  const md=Math.min(...res.map(r=>r.dg));
+  pool=res.filter(r=>r.dg<=md+0.5);
+  pool.sort((a,b)=>a.dg-b.dg||b.ukeire-a.ukeire||a.keep-b.keep);
+  return pool[0].i;
+ }
+ let sc=r=>(minS-r.s)*400+r.ukeire*10-r.keep-(foldLv===1?r.dg*14:r.dg*3)+Math.random()*.5;
+ /* 向聴数が悪化する打牌は、ほぼ選ばない（1向聴悪化は大きく減点） */
+ let bestR=res[0],bv=-1e9;
+ res.forEach(r=>{const v=sc(r);if(v>bv){bv=v;bestR=r}});
+ return bestR.i}
 function cpuTurn(p){
  const h=G.h[p];
  for(let i=0;i<h.length;i++){const b=h[i]&31;if(b>=27&&b<=30&&G.wall.length>0){takeFlowerAt(p,i);return cpuTurn(p)}}
@@ -1434,9 +1538,7 @@ function cpuTurn(p){
    const before=!!G.rii[p];
    declareRii(p,i,cpuShugiRii(p,i,fv.length>0),fv.length>0,!G.firstInterrupted&&G.disc[p].length===0);
    riiNow=!before&&!!G.rii[p];
-  }else{const c=cnt(h);let best=1e9;h.forEach((t0,k)=>{const t=t0&31;if(t===23)return;const nb=(a)=>t>=2&&(t<11?a>=2&&a<=10:a>=11&&a<=19)?c[a]||0:0;
-    let w=(c[t]-1)*5+(t>=2&&t<20?nb(t-1)*2+nb(t+1)*2+nb(t-2)+nb(t+2):0)+(FEVER_IDX.includes(t)?c[t]*2:0)+Math.random();
-    w+=(t0>>5)*4;if(w<best){best=w;i=k}})}}
+  }else{i=cpuPickDiscard(p)}}
  const delay=riiNow?1000:(G.slow?2600:450);
  render('');
  setTimeout(()=>{G.slow=0;if(!holdForSpecialRii(()=>doDisc(p,i)))doDisc(p,i)},delay);
