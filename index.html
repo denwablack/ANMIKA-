@@ -1930,10 +1930,10 @@ function win2_(w,from,t,mo,first,dw){
    if(ron){G.chips[w]-=tms;G.chips[from]+=tms}
    else{for(let q=0;q<3;q++)if(q!=w){G.chips[w]-=tms;G.chips[q]+=tms}if(G.R){G.chips[w]-=tms;G.R.chips[G.R.sit]+=tms;sitLog(tms,'フィーバー継続の祝儀')}}
   }
-  msg='🎰フィーバー継続！<br>'+res+'<br><br>🌷チューリップをめくってフィーバー終了しますか？';
+  msg='🎰フィーバー継続！<br>'+res+(winterN>0?'<br><br>❄️冬を発動してフィーバーを終了しますか？':'');
   G.stage='feverChoice';G.fevWonOwner=w;G.act=w;G.feverChoiceW=w;G.feverChoiceFrom=from;G.feverChoiceRon=ron;G.feverChoiceDeal=dl;
   if(RES){
-   RES.done=1;RES.cont=null;RES.feverChoice=1;
+   RES.done=1;RES.cont=null;RES.feverChoice=1;RES.hasWinter=winterN>0?1:0;
    // 選択前はチューリップを一切表示・発動しない。選択後にだけ結果へ反映する。
    RES.tulipLog=[];RES.tulipFlags=[];RES.tulipHits=[];
   }
@@ -2210,7 +2210,7 @@ function resHtml(){const r=RES;if(!r){RIVV=false;return''}
  const nextB=r.done?(ROLE=='guest'?'<span style="opacity:.7">ホストの操作待ち</span>':`<button onclick="contRes()">${G.over?'もう一度':'次に進む'}</button>`):'';
  if(RIVV)return `<div class="rvbar"><span>🌊河を表示中</span><button class="g" onclick="RIVV=false;render('')">和了画面に戻る</button>${nextB}</div>`;
  const feverChoice=!!r.feverChoice,feverWinner=feverChoice&&V==r.w;
- const btn=r.done?(feverChoice?(feverWinner?`<button class="r" onclick="feverChoiceRemote('end')">🌷チューリップをめくる</button><button onclick="feverChoiceRemote('continue')">🎰続行する</button>`:(ROLE=='guest'?'<span style="opacity:.7">ホストの操作待ち</span>':`<button class="g" onclick="feverChoiceRemote('continue')">次に進む</button>`)):(ROLE=='guest'?'<span style="opacity:.7">ホストの操作待ち</span>':`<button onclick="contRes()">${G.over?'もう一度':'続ける'}</button>`)):'';
+ const btn=r.done?(feverChoice?(feverWinner?`${r.hasWinter?`<button class="r" onclick="feverChoiceRemote('end')">❄️冬を発動させる</button>`:''}<button onclick="feverChoiceRemote('continue')">🎰続行する</button>`:(ROLE=='guest'?'<span style="opacity:.7">ホストの操作待ち</span>':`<button class="g" onclick="feverChoiceRemote('continue')">次に進む</button>`)):(ROLE=='guest'?'<span style="opacity:.7">ホストの操作待ち</span>':`<button onclick="contRes()">${G.over?'もう一度':'続ける'}</button>`)):'';
  const rvBtn='<button class="g" onclick="RIVV=true;render(&quot;&quot;)">🌊河を見る</button>'+(ROLE=='guest'?'<button class="g" onclick="closeGuestRes()">✖結果を閉じる</button>':'');
  const fin=r.fin?`<div style="padding:2px 8px;color:#ffd54a">終局！</div>${r.endBonus?`<div style="margin:4px 8px;padding:6px 8px;border:1px solid #ffd54a;border-radius:8px;background:#2a2208;color:#ffe27a;font-weight:800">🏆 点数ボーナス（終局精算）<br>トップ ${r.endBonus.topScore.toLocaleString()}点 → ${r.endBonus.all?`${r.endBonus.all}枚オール`:'なし'}${r.endBonus.all?` ／ ${r.names.map((n,i)=>n+' '+(r.endBonus.settlement[i]>=0?'+':'')+r.endBonus.settlement[i]+'枚').join(' ／ ')}`:''}</div>`:''}<table class="sc"><tr><th>順位</th><th>今回チップ合計<br><small>（順位精算含む）</small></th><th>累計チップ合計</th></tr>${r.fin.map((x,i)=>`<tr><td>${i+1}位 ${x[1]}<br><small>${x[7]!==undefined?'順位点チップ '+(x[7]>0?'+':'')+x[7]+'枚':'順位点 '+(x[4]>0?'+':'')+x[4]+'点'}</small></td><td><b>${sg(x[2])}枚</b></td><td>${sg(x[6])}枚</td></tr>`).join('')}</table>${KIF?'<div style="padding:3px 8px"><button class="g" onclick="homeFromResult()">🏠 ホームに戻る</button></div>':''}`:'';
  if(r.ty=='ryu'){const tpBlock=r.fevEnd?'<div style="padding:4px 8px;font-size:11px;opacity:.85">待ち牌がすべてなくなったためフィーバー終了（テンパイ・ノーテンの判定なし）</div>':(r.tp&&r.tp.length)?r.tp.map((p,i)=>`<div style="padding:2px 8px 0;font-size:10px">${r.names[p]}（テンパイ）</div><div class="mh">${tiles(r.tpHand[i])}${r.tpMel[i].length?'<span style="width:6px"></span>'+tiles(r.tpMel[i]):''}</div>`).join(''):'<div style="padding:4px 8px;font-size:10px;opacity:.7">テンパイ者なし</div>';
