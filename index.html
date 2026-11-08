@@ -1420,8 +1420,8 @@ function cpuTurn(p){
  const h=G.h[p];
  for(let i=0;i<h.length;i++){const b=h[i]&31;if(b>=27&&b<=30&&G.wall.length>0){takeFlowerAt(p,i);return cpuTurn(p)}}
  for(let i=0;i<h.length;i++){const t=h[i],c=cnt(h);
-  if(G.rii[p]){if(G.wall.length>0&&i==G.last&&t===23&&!canT(p,c)){pull(p,i);G.last=G.h[p].length-1;return nukiRon(p,t,()=>{if(!pocchiNuki(p))cpuTurn(p)})}continue}
-  if(G.wall.length>0&&t===23&&!canT(p,c)){pull(p,i);return nukiRon(p,t,()=>cpuTurn(p))}}
+  if(G.rii[p]){if(G.wall.length>0&&i==G.last&&(t&31)===23&&!canT(p,c)){pull(p,i);G.last=G.h[p].length-1;return nukiRon(p,t,()=>{if(!pocchiNuki(p))cpuTurn(p)})}continue}
+  if(G.wall.length>0&&(t&31)===23&&!canT(p,c)){pull(p,i);return nukiRon(p,t,()=>cpuTurn(p))}}
  if(canT(p,cnt(h)))return win_(p,-1);
  if(G.rii[p]&&nk(p)<4){const kc=cnt(h),kt=kc.findIndex(x=>x==4);if(kt>=0&&kanOK(p,kt)){kan(p,kt);if(feverAfterKan(p))return;return cpuTurn(p)}}
  if(!G.rii[p]&&nk(p)<4&&Math.random()<.5){const kc=cnt(h),kt=kc.findIndex(x=>x==4);if(kt>=0&&kanOK(p,kt)&&cpuKanOK(p,kt)){kan(p,kt);if(feverAfterKan(p))return;return cpuTurn(p)}}
