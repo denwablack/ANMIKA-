@@ -1389,7 +1389,7 @@ function ponCheck(p,t){const b=t&31;
    return draw();
   }
   if(n>=3)continue;
-  if([24,25,26,20,20+(q-G.dealer+3)%3].includes(b)&&Math.random()<.8){G.stage='';G.act=-1;render('');return setTimeout(()=>doPon(q,p,t),650)}}
+  if(G.pon[q].length+G.kan[q].length===0&&[24,25,26,roundWind(),20+(q-G.dealer+3)%3].includes(b)&&Math.random()<.9){G.stage='';G.act=-1;render('');return setTimeout(()=>doPon(q,p,t),650)}}
  nextTurn(p)}
 function doPon(q,p,t){const b=t&31,h=G.h[q],m=[t];for(let i=h.length-1;i>=0&&m.length<3;i--)if((h[i]&31)==b)m.push(...h.splice(i,1));
  m.push((p-q+3)%3);
@@ -1438,7 +1438,7 @@ function cpuShanten(c,k){
  dfs(0,k,0,0);
  if(k===0){
   let pr=0,kinds=0;for(let i=0;i<32;i++){if(c[i]>=1)kinds++;if(c[i]>=2)pr++}
-  best=Math.min(best,6-pr+Math.max(0,7-kinds));
+  if(pr>=5)best=Math.min(best,6-pr+Math.max(0,7-kinds));
   let yk=0,yp=0;YC.forEach(i=>{if(c[i]>=1)yk++;if(c[i]>=2)yp=1});
   if(yk>=10)best=Math.min(best,13-yk-yp);
  }
@@ -1465,6 +1465,13 @@ function cpuDanger(p,idx,seen){
   if(G.fev[q])d*=1.5;
   if(d>worst)worst=d}
  return anyRii?worst:0}
+function cpuMaxSets(c){let best=0;
+ const dfs=(i,m)=>{while(i<32&&!c[i])i++;if(i>=32){if(m>best)best=m;return}
+  if(c[i]>=3){c[i]-=3;dfs(i,m+1);c[i]+=3}
+  const r=CPU_SUIT(i);if(r&&i+2<=r[1]&&c[i+1]&&c[i+2]){c[i]--;c[i+1]--;c[i+2]--;dfs(i,m+1);c[i]++;c[i+1]++;c[i+2]++}
+  c[i]--;dfs(i,m);c[i]++};
+ dfs(0,0);return best}
+const cpuSuitOf=i=>i>=2&&i<=10?0:i>=11&&i<=19?1:(i===1||i===31)?2:3;/* 0筒 1索 2萬 3字牌 */
 function cpuPickDiscard(p){
  const h=G.h[p],k=G.pon[p].length+G.kan[p].length;
  const c=Array(33).fill(0),cand=new Map();
@@ -1479,47 +1486,72 @@ function cpuPickDiscard(p){
  const live=u=>Math.max(0,4-seen[u]);
  const base=cpuShanten(c,k);
  const riiThreat=[0,1,2].some(q=>q!==p&&G.rii[q]);
- /* 押し引き：リーチ者がいて自分が2向聴以上なら完全に降り、1向聴は価値が高い時のみ押す */
+ /* ---- 手役の見極め：混一色・清一色・対々和 ---- */
+ const own=c.slice();const meldIdx=[];
+ G.pon[p].forEach(m=>{try{ptl(m).forEach(x=>meldIdx.push(x&31))}catch(e){}});
+ G.kan[p].forEach(m=>m.slice(0,4).forEach(x=>meldIdx.push(x&31)));
+ const sc4=[0,0,0,0];
+ for(let i=0;i<32;i++)if(own[i])sc4[cpuSuitOf(i)]+=own[i];
+ meldIdx.forEach(i=>{sc4[cpuSuitOf(i)]+=1});
+ const total=sc4[0]+sc4[1]+sc4[2]+sc4[3];
+ let flushSuit=-1,pureFlush=false;
+ for(let s=0;s<3;s++){
+  const off=total-sc4[s]-sc4[3];
+  const meldOff=meldIdx.some(i=>{const q=cpuSuitOf(i);return q!==s&&q!==3});
+  if(!meldOff&&sc4[s]>=7&&off<=2){flushSuit=s;pureFlush=sc4[3]===0||(sc4[3]<=1&&off<=1);break}
+ }
+ let pairs=0,trips=meldIdx.length/3|0;for(let i=0;i<32;i++){if(c[i]>=3)trips++;else if(c[i]===2)pairs++}
+ const toitoi=trips>=3&&pairs>=1&&trips+pairs>=5;
+ /* 押し引き */
  let foldLv=0;
  if(riiThreat){
   const myVal=(G.nuki[p]||[]).length+h.filter(x=>(x>>5)===1||((x>>5)===2&&(x&31)!==23)).length+h.filter(x=>doraSet.has(x&31)).length;
   foldLv=base>=2?2:base===1?(myVal>=3?0:1):0;
  }
+ const setsBefore=cpuMaxSets(c);
  const res=[];
  cand.forEach(v=>{
-  const b=v.b;c[b]--;
-  const s=cpuShanten(c,k);let ukeire=0,good=0;
+  const b=v.b;
+  const offFlushT=flushSuit>=0&&cpuSuitOf(b)!==flushSuit&&cpuSuitOf(b)!==3;
+  /* 混一色・清一色狙いでは、他色の牌は「無いもの」として向聴数・受け入れを評価する（形の良い他色でも残さない） */
+  const ce=flushSuit>=0?c.map((x,i)=>(cpuSuitOf(i)!==flushSuit&&cpuSuitOf(i)!==3&&i<32)?0:x):c.slice();
+  if(!offFlushT)ce[b]--;
+  const s=cpuShanten(ce,k);let ukeire=0;
   for(let u=0;u<32;u++){
-   if(u===23||u===24||(u>=27&&u<=30)||c[u]>=4||!live(u))continue;
-   c[u]++;if(cpuShanten(c,k)<s){ukeire+=live(u);good++}c[u]--}
-  c[b]++;
+   if(u===23||u===24||(u>=27&&u<=30)||ce[u]>=4||!live(u))continue;
+   if(flushSuit>=0&&cpuSuitOf(u)!==flushSuit&&cpuSuitOf(u)!==3)continue;
+   ce[u]++;if(cpuShanten(ce,k)<s)ukeire+=live(u);ce[u]--}
+  c[b]--;const broken=cpuMaxSets(c)<setsBefore;/* 完成している順子・刻子を壊すか */c[b]++;
+  const copies=c[b],suit=cpuSuitOf(b);
+  const offFlush=flushSuit>=0&&suit!==flushSuit&&suit!==3;
+  const honorInFlush=flushSuit>=0&&pureFlush&&suit===3;
   /* 残す価値 */
   let keep=0;
-  const copies=c[b];
   if(doraSet.has(b))keep+=14;
   if(v.kk===1)keep+=10;else if(v.kk===2)keep+=18;
   if(b>=20&&b<=22&&(b===rw||b===sw))keep+=copies>=2?30:2;
-  else if(b>=20&&b<=26&&copies>=2)keep+=copies>=2?3:0;
+  else if(b>=20&&b<=26&&copies>=2)keep+=3;
   if(FEVER_IDX.includes(b))keep+=copies>=3?40:copies===2?14:3;
-  /* 孤立した字牌・端牌は切りやすい */
   if(copies===1&&(b>=20||b===1||b===31||b===2||b===10||b===11||b===19))keep-=2;
+  if(offFlush)keep=-40;/* 混一色・清一色を狙う時は、他色の金・赤・ドラも残さず切る */
+  else if(honorInFlush)keep-=25;/* 清一色狙いなら字牌も切る */
+  if(toitoi&&copies>=2)keep+=40;
   const dg=riiThreat?cpuDanger(p,b,seen):0;
-  res.push({i:v.i,b,s,ukeire,keep,dg});
+  res.push({i:v.i,b,s,ukeire,keep,dg,broken,offFlush});
  });
  const minS=Math.min(...res.map(r=>r.s));
- let pool=res;
  if(foldLv===2){
-  /* 完全ベタオリ：最も安全な牌、同程度なら受け入れの広い方 */
   const md=Math.min(...res.map(r=>r.dg));
-  pool=res.filter(r=>r.dg<=md+0.5);
-  pool.sort((a,b)=>a.dg-b.dg||b.ukeire-a.ukeire||a.keep-b.keep);
+  const pool=res.filter(r=>r.dg<=md+0.5);
+  pool.sort((a,b)=>a.dg-b.dg||(a.broken-b.broken)||b.ukeire-a.ukeire||a.keep-b.keep);
   return pool[0].i;
  }
- let sc=r=>(minS-r.s)*400+r.ukeire*10-r.keep-(foldLv===1?r.dg*14:r.dg*3)+Math.random()*.5;
- /* 向聴数が悪化する打牌は、ほぼ選ばない（1向聴悪化は大きく減点） */
+ /* 評価：向聴数 > メンツ維持 > 手役（混一色など） > 受け入れ枚数 > 打点 */
+ const score=r=>(minS-r.s)*400-(r.broken?220:0)+(r.offFlush?(r.s<=minS?160:60):0)+r.ukeire*10-r.keep-(foldLv===1?r.dg*14:r.dg*3)+Math.random()*.5;
  let bestR=res[0],bv=-1e9;
- res.forEach(r=>{const v=sc(r);if(v>bv){bv=v;bestR=r}});
+ res.forEach(r=>{const v=score(r);if(v>bv){bv=v;bestR=r}});
  return bestR.i}
+
 function cpuTurn(p){
  const h=G.h[p];
  for(let i=0;i<h.length;i++){const b=h[i]&31;if(b>=27&&b<=30&&G.wall.length>0){takeFlowerAt(p,i);return cpuTurn(p)}}
