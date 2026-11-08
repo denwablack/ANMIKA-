@@ -794,7 +794,11 @@ function rosterApply(){const R=G.R,D=R.D;G.sitLedger=[];let P=[D,(D+1)%4,(D+2)%4
 function sitterDice(){const a=1+Math.random()*6|0;let b;do{b=1+Math.random()*6|0}while(b===a);let hit=0;for(let n=0;n<4;){const x=1+Math.random()*6|0,y=1+Math.random()*6|0;if(x===y)continue;n++;if((x===a&&y===b)||(x===b&&y===a))hit++}return{a,b,hit}}
 function sitterEnd(ryu){const R=G.R,s=R.sit,nm=R.names[s];let out='';
  const addAll=(n,why)=>{if(!n)return;G.chips.forEach((_,q)=>{G.chips[q]-=n});R.chips[s]+=3*n;sitLog(3*n,why);out+='<hr>🪑抜け番 '+nm+'：'+why+' 各'+n+'枚（+'+3*n+'枚）'};
- const hasSpring=G.nuki.some(a=>(a||[]).some(x=>(x&31)===27));
+ /* 和了時、ドラ表示牌（リーチ者がいれば裏ドラ表示牌も）に春がめくれた場合は「春あり」扱い＝春なし和了の貰いは発生しない */
+ const _wn=(!ryu&&RES&&RES.ty==='win')?[RES.w].concat((RES.prev||[]).map(x=>x.w)):[];
+ const isSp=x=>(x&31)===27;
+ const indSpring=!ryu&&(G.ind.some(isSp)||(_wn.some(w=>G.rii[w])&&G.ura.some(isSp)));
+ const hasSpring=G.nuki.some(a=>(a||[]).some(x=>(x&31)===27))||indSpring;
  let cnt=R.cnt||0;const k=ryu?(hasSpring?1:2):(hasSpring?0:1);
  for(let i=0;i<k;i++){addAll(4*Math.pow(2,cnt),(ryu?'流局':'春なし和了')+'の貰い（'+(cnt+1)+'カウント目）');cnt++}
  R.cnt=cnt;
