@@ -1860,8 +1860,8 @@ function win2_(w,from,t,mo,first,dw){
  const openRiiHan=G.openRii&&G.openRii[w]?1:0;const northN=G.nuki[w].filter(x=>(x&31)===23).length;const nukiDoraN=northN;const goldNorthN=G.nuki[w].filter(x=>(x&31)===23&&(x>>5)===2).length;
  // ドラ・裏ドラ表示牌に華牌が出た場合も、和了時には『その華牌を抜いた』ものとして扱う。
  // したがって春・夏・秋・冬・チューリップの全判定に表示牌の華を含める。
- const indicatorFlowers=G.ind.concat(G.ura).filter(x=>{const ix=x&31;return ix>=27&&ix<=30});
- const effectiveFlowers=(G.nuki[w]||[]).concat(indicatorFlowers);
+ const indicatorFlowers=G.ind.concat(G.rii[w]?G.ura:[]).filter(x=>{const ix=x&31;return ix>=27&&ix<=30});
+ const effectiveFlowers=(G.nuki[w]||[]).filter(x=>{const ix=x&31;return ix>=27&&ix<=30}).concat(indicatorFlowers);
  const effectiveFlowerN=idx=>effectiveFlowers.filter(x=>(x&31)===idx).length;
  const flowerNn=effectiveFlowers.length,springN=effectiveFlowerN(27),summerN=effectiveFlowerN(28),autumnN=effectiveFlowerN(29),winterN=effectiveFlowerN(30);
  const goldNorthChoice=chooseGoldNorth(w,springN,summerN,autumnN,winterN);
