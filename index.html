@@ -853,6 +853,7 @@ function start(p){
   }
   kan(p,24);if(G.rii[p])return riichiAuto(p);return cpuTurn(p);
  }
+ {const nt=G.h[p][G.last];if(nt!=null&&nt!==dt&&G.rii[p]&&[3,4,5,6].includes(nt>>5)&&pocchiNuki(p))return}/* 華牌の補充牌がポッチだった場合 */
  if(G.rii[p]&&[3,4,5,6].includes(dt>>5)){const pc=dt>>5,rev=pc===5||pc===6;G.pocchiColor=pc;/* 白待ちなら逆ポッチを通常の白として扱い、逆効果を回避。正規ポッチは従来どおり高め取り */const h13=G.h[p].filter((_,i)=>i!==G.last);if(rev&&waits(h13,p).includes(24)){G.h[p][G.last]=24;G.pocchiTsumo=p;G.wild=-1;G.revPochi=-1;return win_(p,-1)}/* リーチ後は公開演出が終わるまで、卓上のツモ牌を普通の白として表示 */G.h[p][G.last]=dt&31;const go=()=>{G.h[p][G.last]=dt;G.pocchiTsumo=p;G.wild=p;if(rev)G.revPochi=p;return win_(p,-1)};G.stage='pocchi';G.act=-1;render('');pocchiReveal(rev,go,pc);return}
  if(!(G.rii[p]&&canT(p,cnt(G.h[p])))&&checkFeverWaitExhausted())return;
  if(G.hum[p]){if(G.rii[p])return riichiAuto(p);G.stage='me';G.act=p;draw()}else cpuTurn(p)}
@@ -1597,6 +1598,8 @@ function cpuPickDiscard(p){
 function cpuTurn(p){
  const h=G.h[p];
  for(let i=0;i<h.length;i++){const b=h[i]&31;if(b>=27&&b<=30&&G.wall.length>0){takeFlowerAt(p,i);return cpuTurn(p)}}
+ /* リーチ中に補充牌（華牌・嶺上牌）でポッチをツモった場合もポッチツモ判定を行う（ツモ切り防止） */
+ {const lt=G.h[p][G.last];if(G.rii[p]&&lt!=null&&[3,4,5,6].includes(lt>>5)&&pocchiNuki(p))return}
  for(let i=0;i<h.length;i++){const t=h[i],c=cnt(h);
   if(G.rii[p]){if(G.wall.length>0&&i==G.last&&(t&31)===23&&!canT(p,c)){pull(p,i);G.last=G.h[p].length-1;return nukiRon(p,t,()=>{if(!pocchiNuki(p))cpuTurn(p)})}continue}
   if(G.wall.length>0&&(t&31)===23&&!canT(p,c)){pull(p,i);return nukiRon(p,t,()=>cpuTurn(p))}}
