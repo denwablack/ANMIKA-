@@ -1536,8 +1536,21 @@ function cpuPickDiscard(p){
   if(offFlush)keep=-40;/* 混一色・清一色を狙う時は、他色の金・赤・ドラも残さず切る */
   else if(honorInFlush)keep-=25;/* 清一色狙いなら字牌も切る */
   if(toitoi&&copies>=2)keep+=40;
+  /* 切り順：孤立した 字牌 → 么九牌 → 2・8 → その他の孤立牌。ターツ（両面・嵌張・辺張）になりそうな牌は残す */
+  let iso=0;
+  if(copies===1){
+   const r=CPU_SUIT(b);let lonely=true;
+   if(r)for(let j=Math.max(r[0],b-2);j<=Math.min(r[1],b+2);j++)if(j!==b&&c[j]){lonely=false;break}
+   if(lonely){
+    if(b>=20)iso=(b===rw||b===sw||b>=24)?70:150;/* 役牌単騎は少し残す */
+    else if(YC.includes(b))iso=120;
+    else if(b===3||b===9||b===12||b===18)iso=90;
+    else iso=60;
+    if(doraSet.has(b)||v.kk>=1)iso=Math.max(0,iso-70);
+   }
+  }
   const dg=riiThreat?cpuDanger(p,b,seen):0;
-  res.push({i:v.i,b,s,ukeire,keep,dg,broken,offFlush});
+  res.push({i:v.i,b,s,ukeire,keep,dg,broken,offFlush,iso});
  });
  const minS=Math.min(...res.map(r=>r.s));
  if(foldLv===2){
@@ -1547,7 +1560,7 @@ function cpuPickDiscard(p){
   return pool[0].i;
  }
  /* 評価：向聴数 > メンツ維持 > 手役（混一色など） > 受け入れ枚数 > 打点 */
- const score=r=>(minS-r.s)*400-(r.broken?220:0)+(r.offFlush?(r.s<=minS?160:60):0)+r.ukeire*10-r.keep-(foldLv===1?r.dg*14:r.dg*3)+Math.random()*.5;
+ const score=r=>(minS-r.s)*400-(r.broken?220:0)+(r.offFlush?(r.s<=minS?160:60):0)+r.iso+r.ukeire*10-r.keep-(foldLv===1?r.dg*14:r.dg*3)+Math.random()*.5;
  let bestR=res[0],bv=-1e9;
  res.forEach(r=>{const v=score(r);if(v>bv){bv=v;bestR=r}});
  return bestR.i}
