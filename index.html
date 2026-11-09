@@ -806,7 +806,7 @@ function sitterEnd(ryu){const R=G.R,s=R.sit,nm=R.names[s];let out='';
  R.cnt=cnt;
  const allNoten=ryu&&[0,1,2].every(q=>waits(G.h[q],q).length===0);
  if(ryu&&(!hasSpring||allNoten)){const d=sitterDice();out+='<hr>🎲抜け番サイコロチャンス（'+(!hasSpring?'春なし流局':'全員ノーテン')+'）宣言['+d.a+'・'+d.b+'] 的中'+d.hit+'回';addAll(70*d.hit,'出目当て')}
- const slips=[],winners=(RES&&RES.ty==='win')?[RES.w].concat((RES.prev||[]).map(x=>x.w)):[];if(G.fevEnd&&G.fevWonOwner>=0)winners.push(G.fevWonOwner);
+ const slips=[],winners=(RES&&RES.ty==='win')?[RES.w].concat((RES.prev||[]).map(x=>x.w)):[];if(G.fevWonOwner>=0)winners.push(G.fevWonOwner);/* フィーバーで和了済みならシュバ滑りなし */
  /* 祝儀倍リーチの宣言牌で放銃した場合はシュバ滑りなし */const dealtIn=p=>!ryu&&RES&&RES.ty==='win'&&RES.ron&&RES.from===p&&G.riiIdx[p]>=0&&G.riiIdx[p]===(G.disc[p]||[]).length-1;
  for(let p=0;p<3;p++)if(G.dbl[p]&&!winners.includes(p)&&!dealtIn(p)){G.chips[p]-=10;R.chips[s]+=10;sitLog(10,'🛷シュバ滑り（'+G.names[p]+'から支払い）');slips.push({n:G.names[p],to:nm,c:10});out+='<hr>🛷シュバ滑り：'+G.names[p]+' → 抜け番 '+nm+' に支払い 10枚'}
  G.lastSlip=slips;
@@ -2130,7 +2130,7 @@ function win2_(w,from,t,mo,first,dw){
  }
  consumeTulipWall([...tulipIdx,...winterIdx]);
  const trueYakuman=yk.filter(x=>!['リーチのみ','リーチツモのみ'].includes(x));end(G.wlog.join('<hr>'),false,mo==2?dw:dl);if(trueYakuman.length) setTimeout(()=>yakumanReveal(trueYakuman,tiles(h.concat(kt).map(x=>x===VIRTUAL_8M?(pochT!=null?pochT:(ron?t:32)):x).sort(st))),80)}
-function end(text,ryu,dealerWon){if(ryu){snd('ryu');if(G.kifCur&&!G.kifCur.res)G.kifCur.res='流局'}if(ryu&&G.wlog.length)text=G.wlog.join('<hr>')+'<hr>'+text;
+function end(text,ryu,dealerWon){if(ryu&&G.fevWonOwner>=0)G.fevEnd=1;/* フィーバーで和了済みの終局は、どの終わり方でもテンパイ・ノーテン扱いにせず和了終局扱い */if(ryu){snd('ryu');if(G.kifCur&&!G.kifCur.res)G.kifCur.res='流局'}if(ryu&&G.wlog.length)text=G.wlog.join('<hr>')+'<hr>'+text;
  G.stage='done';G.act=-1;
  const pen=[0,0,0];
  // 流し満貫：河が么九牌・字牌のみで、抜きドラ（7萬・北）を河に捨てておらず、鳴きもない場合。特例としてダブル役満扱い。
