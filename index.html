@@ -1684,7 +1684,7 @@ function pinfu(p,c,wt){wt&=31;
  const sw=20+(p-G.dealer+3)%3;
  for(let pi=0;pi<32;pi++){
   if(c[pi]<2)continue;
-  if(pi>=24||pi==roundWind()||pi==sw)continue;
+  if((pi>=23&&pi<=30)||pi==roundWind()||pi==sw)continue;/* 23＝北（国士・小四喜・大四喜のみ）、24〜26＝役牌、27〜30＝華牌は雀頭不可。31＝九萬は雀頭にできる */
   const rem=c.slice();rem[pi]-=2;
   for(const k of [0,2]){
    const a=wt-k;
