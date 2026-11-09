@@ -727,6 +727,7 @@ function feverWaitDataFromHand(hand,p){
  // 待ち牌の残り枚数は、現在の山に残っている枚数を牌種ごとに集計。
  const left=Array(32).fill(0);
  G.wall.forEach(x=>left[x&31]++);left[32]=G.wall.filter(x=>(x&31)===24&&[3,4,5,6].includes(x>>5)).length;
+ left[24]=0;/* 白ポッチは待ち牌に含めない（間8萬待ちのみポッチを待ち牌として数える） */
  return w.map(t=>[t===32?VIRTUAL_8M:t,left[t]]);
 }
 function feverWaitData(p){return feverWaitDataFromHand(G.h[p],p)}
@@ -748,7 +749,7 @@ function feverWaitExhausted(){
  const p=feverOwner();
  if(p<0||!G.rii[p])return false;
  const wd=feverWaitData(p);
- return wd.length>0&&wd.every(x=>x[1]<=0)&&feverPocchiLeft()<=0;
+ return wd.length>0&&wd.every(x=>x[1]<=0);
 }
 function checkFeverWaitExhausted(){
  if(!feverWaitExhausted()||G.stage=='done'||RES)return false;
@@ -1364,8 +1365,8 @@ function declareRii(p,i,m,allowFever=true,doubleRiichi=false,open=false){const s
  const r=without(G.h[p],i);if(open)G.openWaits[p]=waits(r,p);G.fev[p]=(allowFever&&feverEligible(r,G.kan[p]))?Math.min(3,Math.max(1,feverCountEligible(r,G.kan[p]))):0;G.dice[p]=0;
  if(!G.fevZero)G.fevZero=[0,0,0];
  G.fevZero[p]=0;
- if(G.fev[p]){const wr=waits(r,p),lf=Array(32).fill(0);G.wall.forEach(x=>lf[x&31]++);
-  if(wr.length>0&&wr.every(t=>lf[t]<=0)&&feverPocchiLeft()<=0)G.fevZero[p]=1}
+ if(G.fev[p]){const wr=waits(r,p),lf=Array(33).fill(0);G.wall.forEach(x=>lf[x&31]++);lf[32]=G.wall.filter(x=>(x&31)===24&&[3,4,5,6].includes(x>>5)).length;lf[24]=0;/* 白ポッチは待ち牌に含めない。間8萬待ちのみポッチを待ち牌扱い */
+  if(wr.length>0&&wr.every(t=>lf[t]<=0))G.fevZero[p]=1}
  if(m&&G.fev[p]){
   if(G.fev[p]>=3){bigCall('トリプルフィーバーシュバリーチ！');snd('puchun');setTimeout(()=>{snd('lightning');playClip('fevshugi',()=>playClip('fevsfx',releaseSpecialRii))},1700)}else if(G.fev[p]>=2){/* ダブルフィーバー：プチュン→暗転フリーズ→カットイン後に音声 */bigCall('ダブルフィーバーシュバリーチ！');snd('puchun');setTimeout(()=>{snd('lightning');playClip('fevshugi',()=>playClip('fevsfx',releaseSpecialRii))},1700)}
   else{bigCall('フィーバーシュバリーチ！');snd('lightning');
